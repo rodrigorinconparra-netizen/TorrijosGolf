@@ -24,19 +24,10 @@ export function PushRegistrar() {
       if (perm.receive !== "granted" || cancelled) return;
 
       await PushNotifications.addListener("registration", async (token) => {
-        let fcmToken = token.value;
-        // En iOS el token de registro es de APNs; FCM necesita el suyo propio.
-        if (Capacitor.getPlatform() === "ios") {
-          try {
-            const { FCM } = await import("@capacitor-community/fcm");
-            const r = await FCM.getToken();
-            fcmToken = r.token;
-          } catch {
-            /* nos quedamos con el token APNs si FCM falla */
-          }
-        }
+        // Android da el token FCM directamente; iOS da el de APNs. (Para push
+        // por FCM en iOS habría que reintroducir Firebase; ver PUBLICAR.md.)
         if (!cancelled) {
-          await registerDeviceTokenAction(fcmToken, Capacitor.getPlatform());
+          await registerDeviceTokenAction(token.value, Capacitor.getPlatform());
         }
       });
 
