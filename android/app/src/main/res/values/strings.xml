@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Torrijos Golf</string>
+    <string name="title_activity_main">Torrijos Golf</string>
+    <string name="package_name">com.torrijosgolf.app</string>
+    <string name="custom_url_scheme">com.torrijosgolf.app</string>
+</resources>

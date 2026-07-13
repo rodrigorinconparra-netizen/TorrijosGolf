@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@theme {
+  /* Superficies — blanco verdoso frío, estilo Apple (branding Torrijos Golf) */
+  --color-cream: #f7faf8;
+  --color-cream-deep: #eef3ef;
+  --color-sand: #e2ebe5;
+  --color-sand-deep: #c8d8cd;
+
+  /* Texto */
+  --color-ink: #1c1c1e;
+  --color-ink-soft: #3a3a3c;
+  --color-muted: #6e6e73;
+  --color-faint: #a1a1a6;
+
+  /* Marca — verde azulado (teal) del logo de Torrijos Golf */
+  --color-accent: #1f6c5c;
+  --color-accent-soft: #3c8a77;
+  --color-accent-deep: #164f43;
+
+  /* Semánticos */
+  --color-positive: #2faf5a;
+  --color-negative: #e5484d;
+  --color-warning: #f5a623;
+
+  /* Texto sobre superficies accent: constante en claro Y oscuro */
+  --color-on-accent: #ffffff;
+
+  --font-sans: var(--font-geist-sans);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/*
+ * Tema oscuro token-driven: Tailwind v4 resuelve `bg-white/70` o `border-black/8`
+ * a través de var(--color-white/black), así que sobrescribir los tokens
+ * re-skinea toda la app. Sigue la preferencia del sistema.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-cream: #0f1312;
+    --color-cream-deep: #161b19;
+    --color-sand: #1d2421;
+    --color-sand-deep: #2a332f;
+    --color-ink: #f4f4f6;
+    --color-ink-soft: #d7d7dc;
+    --color-muted: #9d9da5;
+    --color-faint: #6e6e77;
+    --color-accent: #3c8a77;
+    --color-accent-soft: #55a38f;
+    --color-accent-deep: #4d9c87;
+    --color-white: #1b211f;
+    --color-black: #ffffff;
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 620px at 82% -12%, rgba(60, 138, 119, 0.12), transparent 60%),
+    radial-gradient(1000px 520px at -12% 6%, rgba(200, 216, 205, 0.42), transparent 55%),
+    var(--color-cream);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(1200px 620px at 82% -12%, rgba(60, 138, 119, 0.14), transparent 60%),
+      radial-gradient(1000px 520px at -12% 6%, rgba(42, 51, 47, 0.5), transparent 55%),
+      var(--color-cream);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* Superficie de cristal esmerilado, el bloque base del estilo Apple */
+  .glass {
+    @apply rounded-3xl border border-white/70 bg-white/65 shadow-[0_10px_34px_rgba(28,28,30,0.07)] backdrop-blur-2xl;
+  }
+  .glass-soft {
+    @apply rounded-2xl border border-white/60 bg-white/45 backdrop-blur-xl;
+  }
+
+  /* Inputs */
+  .field {
+    @apply w-full rounded-2xl border border-black/8 bg-white/80 px-4 py-3 text-[15px] text-ink
+      placeholder:text-faint outline-none transition
+      focus:border-accent/40 focus:bg-white focus:ring-4 focus:ring-accent/10;
+  }
+
+  /* Botones — autocontenidos (Tailwind v4 no puede @apply clases de componente propias) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[15px]
+      font-medium transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50
+      bg-accent text-on-accent shadow-[0_8px_20px_rgba(31,108,92,0.28)] hover:bg-accent-deep;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[15px]
+      font-medium transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50
+      border border-black/8 bg-white/70 text-ink-soft hover:bg-white;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[15px]
+      font-medium transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50
+      border border-negative/20 bg-negative/10 text-negative hover:bg-negative/15;
+  }
+}
+
+/* Entrada de menús desplegables (p. ej. el menú de la navbar móvil) */
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
