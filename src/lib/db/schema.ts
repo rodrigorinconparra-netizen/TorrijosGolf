@@ -659,3 +659,49 @@ export const scheduleChangeRequests = pgTable("schedule_change_requests", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   decidedAt: timestamp("decided_at"),
 });
+
+/* ----------------------------------------------------------------------------
+ * Ofertas de clases (bonos): el admin publica un cartel; el alumno la solicita
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Oferta/bono de clases que publica el admin (p. ej. "10 clases por 100 €"),
+ * con un cartel opcional (imagen en base64) y sus condiciones. Se puede activar
+ * o desactivar sin borrarla.
+ */
+export const classOffers = pgTable("class_offers", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  /** Condiciones / descripción de la oferta. */
+  description: text("description"),
+  /** Nº de clases del bono (opcional, informativo). */
+  classCount: integer("class_count"),
+  /** Precio del bono en euros. */
+  price: real("price").notNull().default(0),
+  /** Cartel de la oferta: imagen en base64 y su tipo MIME (opcional). */
+  imageData: text("image_data"),
+  imageMime: text("image_mime"),
+  active: boolean("active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** Solicitud de un alumno para acogerse a una oferta. La confirma el admin. */
+export const offerRequests = pgTable("offer_requests", {
+  id: serial("id").primaryKey(),
+  offerId: integer("offer_id")
+    .notNull()
+    .references(() => classOffers.id, { onDelete: "cascade" }),
+  studentId: integer("student_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  note: text("note"),
+  status: classRequestStatusEnum("status").notNull().default("pendiente"),
+  decidedBy: integer("decided_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  decidedAt: timestamp("decided_at"),
+});

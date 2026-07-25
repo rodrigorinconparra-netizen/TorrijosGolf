@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MobileNavMenu } from "@/components/layout/mobile-nav-menu";
 import { TorrijosMark } from "@/components/torrijos-mark";
 import { unreadNotificationCount } from "@/lib/queries";
+import { pendingRequestsForStudent } from "@/lib/requests";
 import { initials } from "@/lib/utils";
 import type { SessionPayload } from "@/lib/auth/jwt";
 
@@ -12,12 +13,14 @@ const ROLE_LABEL = { admin: "Admin", profesor: "Profesor", alumno: "Alumno" } as
 
 export async function Topbar({ user }: { user: SessionPayload }) {
   const unread = await unreadNotificationCount(user.userId);
+  const requestsPending =
+    user.role === "alumno" ? await pendingRequestsForStudent(user.userId) : 0;
 
   return (
     <header className="sticky top-0 z-30 -mx-4 mb-6 px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] sm:-mx-6 sm:px-6">
       <div className="glass flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
-          <MobileNavMenu role={user.role} />
+          <MobileNavMenu role={user.role} requestsPending={requestsPending} />
           <div className="flex items-center md:hidden">
             <TorrijosMark height={30} />
           </div>

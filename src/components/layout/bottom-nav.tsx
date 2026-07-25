@@ -11,10 +11,12 @@ export function BottomNav({
   role,
   chatUnread = 0,
   adminPending = 0,
+  requestsPending = 0,
 }: {
   role: Role;
   chatUnread?: number;
   adminPending?: number;
+  requestsPending?: number;
 }) {
   const pathname = usePathname();
   const items = navItemsFor(role).filter((i) => i.primary);
@@ -26,7 +28,13 @@ export function BottomNav({
           const { href, icon: Icon } = item;
           const active = pathname === href || pathname.startsWith(href + "/");
           const badge =
-            href === "/chat" ? chatUnread : href === "/admin" ? adminPending : 0;
+            href === "/chat"
+              ? chatUnread
+              : href === "/admin"
+                ? adminPending
+                : href === "/solicitudes"
+                  ? requestsPending
+                  : 0;
           return (
             <Link
               key={href}

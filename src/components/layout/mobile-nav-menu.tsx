@@ -9,7 +9,13 @@ import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/auth/jwt";
 
 /** Navegación móvil: vive en la barra superior (navbar) como botón de menú. */
-export function MobileNavMenu({ role }: { role: Role }) {
+export function MobileNavMenu({
+  role,
+  requestsPending = 0,
+}: {
+  role: Role;
+  requestsPending?: number;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -49,11 +55,14 @@ export function MobileNavMenu({ role }: { role: Role }) {
         aria-label="Menú"
         aria-expanded={open}
         className={cn(
-          "grid h-9 w-9 place-items-center rounded-xl border border-black/8 text-ink-soft outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-accent/40",
+          "relative grid h-9 w-9 place-items-center rounded-xl border border-black/8 text-ink-soft outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-accent/40",
           open ? "bg-white text-accent" : "bg-white/70",
         )}
       >
         {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        {!open && requestsPending > 0 ? (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-negative ring-2 ring-white" />
+        ) : null}
       </button>
 
       {open ? (
@@ -81,7 +90,17 @@ export function MobileNavMenu({ role }: { role: Role }) {
                       active ? "text-on-accent" : "text-muted",
                     )}
                   />
-                  <span className="truncate">{item.label}</span>
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {href === "/solicitudes" && requestsPending > 0 ? (
+                    <span
+                      className={cn(
+                        "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold",
+                        active ? "bg-white/25 text-on-accent" : "bg-negative text-on-accent",
+                      )}
+                    >
+                      {requestsPending > 9 ? "9+" : requestsPending}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

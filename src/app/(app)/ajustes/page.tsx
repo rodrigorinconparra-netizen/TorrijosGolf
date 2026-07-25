@@ -6,7 +6,7 @@ import { users } from "@/lib/db/schema";
 import { logoutAction } from "@/app/(auth)/actions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
-import { ProfileForm, PasswordForm } from "./forms";
+import { ProfileForm, PasswordForm, DeleteAccountForm } from "./forms";
 import { TeacherProfileForm } from "@/components/teacher-profile-form";
 import {
   togglePushAction,
@@ -169,6 +169,15 @@ export default async function SettingsPage() {
           <LogOut className="h-4 w-4" /> Cerrar sesión
         </button>
       </form>
+
+      <section className="glass border border-negative/20 p-6">
+        <h2 className="font-semibold text-negative">Eliminar cuenta</h2>
+        <p className="mb-4 mt-1 text-sm text-muted">
+          Elimina permanentemente tu cuenta y todos tus datos de Torrijos Golf.
+          Esta acción no se puede deshacer.
+        </p>
+        <DeleteAccountForm />
+      </section>
     </>
   );
 }

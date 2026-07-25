@@ -30,6 +30,8 @@ import {
   quickCompleteSessionAction,
 } from "@/app/(app)/clases/actions";
 import { studentIdsOfTeacher, childrenOf } from "@/lib/queries";
+import { activeOffers, myOfferStatuses } from "@/lib/offers";
+import { OffersList } from "@/components/offers-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +40,15 @@ import { formatDate, formatDateTime, formatEuro, toDateKey, initials } from "@/l
 
 export const metadata = { title: "Inicio" };
 
-// Reserva de greenfee: gestionada en teeone. Configurable por env.
-const GREENFEE_URL =
-  process.env.NEXT_PUBLIC_GREENFEE_URL ?? "https://reservas.teeone.golf";
+// Reservas de pista/greenfee: gestionadas en el portal web de teeone, que ofrece
+// entornos distintos para socios y visitantes. Solo hacen falta las URLs (no las
+// claves de API, que únicamente sirven para leer el estadillo en la sección Pista).
+// Configurables por env; si no hay URL de socios, se muestra un único botón.
+const TEEONE_SOCIOS_URL = process.env.NEXT_PUBLIC_TEEONE_SOCIOS_URL;
+const TEEONE_VISITANTES_URL =
+  process.env.NEXT_PUBLIC_TEEONE_VISITANTES_URL ??
+  process.env.NEXT_PUBLIC_GREENFEE_URL ??
+  "https://reservas.teeone.golf";
 
 function monthRange(): { from: string; to: string } {
   const now = new Date();
@@ -383,6 +391,12 @@ export default async function DashboardPage() {
     );
   }
 
+  const offers = user.role === "alumno" ? await activeOffers() : [];
+  const offerStatuses =
+    user.role === "alumno"
+      ? Object.fromEntries(await myOfferStatuses(user.userId))
+      : {};
+
   return (
     <>
       <PageHeader
@@ -392,18 +406,33 @@ export default async function DashboardPage() {
 
       {user.role === "alumno" ? (
         <div className="flex flex-wrap gap-3">
+          {TEEONE_SOCIOS_URL ? (
+            <a
+              href={TEEONE_SOCIOS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+            >
+              <Flag className="h-4 w-4" /> Reservar greenfee (socio)
+            </a>
+          ) : null}
           <a
-            href={GREENFEE_URL}
+            href={TEEONE_VISITANTES_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-primary"
+            className={TEEONE_SOCIOS_URL ? "btn-ghost" : "btn-primary"}
           >
             <Flag className="h-4 w-4" /> Reservar greenfee
+            {TEEONE_SOCIOS_URL ? " (visitante)" : ""}
           </a>
           <Link href="/reservar" className="btn-ghost">
             <CalendarPlus className="h-4 w-4" /> Reservar clase
           </Link>
         </div>
+      ) : null}
+
+      {offers.length > 0 ? (
+        <OffersList offers={offers} statuses={offerStatuses} />
       ) : null}
 
       {content}

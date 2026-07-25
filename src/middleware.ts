@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifyToken } from "@/lib/auth/jwt";
 
 const AUTH_PAGES = ["/login", "/register"];
 // Las páginas legales deben ser accesibles sin cuenta (revisión App Store, RGPD).
-const PUBLIC_PAGES = ["/privacidad", "/terminos"];
+const PUBLIC_PAGES = ["/privacidad", "/terminos", "/soporte", "/cuenta-eliminada"];
 const ADMIN_PREFIX = "/admin";
 
 export async function middleware(req: NextRequest) {

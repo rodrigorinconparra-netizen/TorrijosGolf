@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
-import { Save, KeyRound } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Save, KeyRound, Trash2 } from "lucide-react";
 import {
   changePasswordAction,
+  deleteAccountAction,
   updateProfileAction,
   type ActionState,
 } from "./actions";
@@ -86,6 +87,70 @@ export function PasswordForm() {
       <button type="submit" disabled={pending} className="btn-ghost">
         <KeyRound className="h-4 w-4" /> {pending ? "Actualizando…" : "Cambiar contraseña"}
       </button>
+    </form>
+  );
+}
+
+/**
+ * Eliminación de cuenta en dos pasos: primero pide confirmación, luego la
+ * contraseña. Al confirmar, borra la cuenta y redirige a la pantalla de aviso.
+ */
+export function DeleteAccountForm() {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    deleteAccountAction,
+    {},
+  );
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="btn-danger"
+      >
+        <Trash2 className="h-4 w-4" /> Eliminar mi cuenta
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} className="space-y-3">
+      <p className="rounded-2xl bg-negative/10 px-4 py-3 text-sm text-negative">
+        Esta acción es <strong>permanente</strong>. Se eliminarán tu cuenta y todos
+        tus datos (reservas, mensajes, solicitudes, entrenamientos…) y no se podrán
+        recuperar.
+      </p>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-ink-soft">
+          Confirma tu contraseña para continuar
+        </label>
+        <input
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          className="field"
+        />
+      </div>
+      {state.error ? (
+        <p className="rounded-2xl bg-negative/10 px-4 py-2.5 text-sm text-negative">
+          {state.error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={pending} className="btn-danger">
+          <Trash2 className="h-4 w-4" />
+          {pending ? "Eliminando…" : "Sí, eliminar definitivamente"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="btn-ghost"
+        >
+          Cancelar
+        </button>
+      </div>
     </form>
   );
 }

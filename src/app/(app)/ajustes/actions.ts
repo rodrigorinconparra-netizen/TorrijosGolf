@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { requireSession } from "@/lib/auth/session";
+import { requireSession, destroySession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { parseTeacherProfile } from "@/lib/teacher-profile";
 
@@ -122,4 +123,47 @@ export async function toggleGroupAddableAction(formData: FormData): Promise<void
   const enabled = formData.get("enabled") === "true";
   await db.update(users).set({ groupAddable: enabled }).where(eq(users.id, user.userId));
   revalidatePath("/ajustes");
+}
+
+const deleteSchema = z.object({
+  password: z.string().min(1, "Escribe tu contraseña para confirmar"),
+});
+
+/**
+ * Elimina permanentemente la cuenta del usuario y todos sus datos. Requiere la
+ * contraseña como confirmación. Las claves foráneas borran/anulan en cascada
+ * (reservas, mensajes, solicitudes, hijos menores…). Cierra la sesión al acabar.
+ */
+export async function deleteAccountAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireSession();
+  const parsed = deleteSchema.safeParse({ password: formData.get("password") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  }
+
+  const [row] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
+  if (!row || !(await verifyPassword(parsed.data.password, row.passwordHash))) {
+    return { error: "La contraseña no es correcta" };
+  }
+
+  // No dejar al club sin acceso: no permitir borrar al único administrador.
+  if (row.role === "admin") {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.role, "admin"));
+    if (n <= 1) {
+      return {
+        error:
+          "Eres el único administrador. Nombra a otro administrador antes de eliminar tu cuenta.",
+      };
+    }
+  }
+
+  await db.delete(users).where(eq(users.id, user.userId));
+  await destroySession();
+  redirect("/cuenta-eliminada");
 }

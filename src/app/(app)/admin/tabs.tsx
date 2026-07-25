@@ -15,6 +15,7 @@ const TABS = [
   { href: "/admin/informes", label: "Informes" },
   { href: "/admin/avisos", label: "Avisos" },
   { href: "/admin/eventos", label: "Eventos" },
+  { href: "/admin/ofertas", label: "Ofertas" },
 ];
 
 export function AdminTabs({ pendingRequests = 0 }: { pendingRequests?: number }) {

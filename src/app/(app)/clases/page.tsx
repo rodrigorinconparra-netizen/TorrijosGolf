@@ -13,6 +13,8 @@ import {
 } from "@/lib/classes";
 import { allTeachers, teacherWeeklySchedule } from "@/lib/booking";
 import { chatContacts } from "@/lib/queries";
+import { activeOffers, myOfferStatuses } from "@/lib/offers";
+import { OffersList } from "@/components/offers-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, weekdayName, initials } from "@/lib/utils";
@@ -73,8 +75,13 @@ async function StudentView({ userId }: { userId: number }) {
     .where(eq(trainingAssignments.studentId, userId))
     .orderBy(desc(trainings.createdAt));
 
+  const offers = await activeOffers();
+  const offerStatuses = Object.fromEntries(await myOfferStatuses(userId));
+
   return (
     <>
+      <OffersList offers={offers} statuses={offerStatuses} />
+
       <section className="glass p-6">
         <h2 className="font-semibold">Profesores</h2>
         <p className="mb-4 mt-1 text-sm text-muted">
