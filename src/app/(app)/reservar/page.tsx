@@ -1,8 +1,11 @@
+import { asc, eq } from "drizzle-orm";
 import { CalendarPlus } from "lucide-react";
 import { requireSession } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { allTeachers, teacherWeeklySchedule } from "@/lib/booking";
+import { allTeachers, teacherPrices, teacherWeeklySchedule } from "@/lib/booking";
 import { childrenOf } from "@/lib/queries";
 import { BookingClient } from "./booking-client";
 
@@ -17,6 +20,7 @@ export default async function BookPage() {
       id: t.id,
       name: t.name,
       entries: await teacherWeeklySchedule(t.id),
+      prices: await teacherPrices(t.id),
     })),
   );
   // Solo profesores que tengan alguna hora libre para reservar.
@@ -25,6 +29,15 @@ export default async function BookPage() {
   );
 
   const kids = await childrenOf(user.userId);
+
+  // Alumnos que se pueden añadir a una clase grupal (todos menos uno mismo).
+  const classmates = (
+    await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.role, "alumno"))
+      .orderBy(asc(users.name))
+  ).filter((s) => s.id !== user.userId);
 
   return (
     <>
@@ -42,6 +55,7 @@ export default async function BookPage() {
         <BookingClient
           teachers={withFree}
           children={kids.map((k) => ({ id: k.id, name: k.name }))}
+          classmates={classmates}
         />
       )}
     </>

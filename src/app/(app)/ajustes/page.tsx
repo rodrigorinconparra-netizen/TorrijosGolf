@@ -6,7 +6,7 @@ import { users } from "@/lib/db/schema";
 import { logoutAction } from "@/app/(auth)/actions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
-import { ProfileForm, PasswordForm, DeleteAccountForm } from "./forms";
+import { ProfileForm, PasswordForm, DeleteAccountForm, HandicapForm } from "./forms";
 import { TeacherProfileForm } from "@/components/teacher-profile-form";
 import {
   togglePushAction,
@@ -61,6 +61,16 @@ export default async function SettingsPage() {
           />
         </section>
       ) : null}
+
+      <section className="glass p-6">
+        <h2 className="font-semibold">Hándicap</h2>
+        <p className="mb-4 mt-1 text-sm text-muted">
+          Se obtiene automáticamente de la Real Federación Española de Golf con tu
+          número de licencia y se actualiza a diario. También puedes refrescarlo
+          ahora.
+        </p>
+        <HandicapForm current={user.handicapIndex} />
+      </section>
 
       <section className="glass p-6">
         <h2 className="font-semibold">Seguridad</h2>

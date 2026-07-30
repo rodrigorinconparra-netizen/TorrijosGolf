@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { CalendarPlus, Flag, Inbox, Tag } from "lucide-react";
+import { CalendarPlus, Flag, Inbox, Tag, Trash2 } from "lucide-react";
 import { requireSession } from "@/lib/auth/session";
 import { myBookingRequests, myOfferRequests } from "@/lib/requests";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate, formatEuro, weekdayName } from "@/lib/utils";
+import {
+  deleteMyBookingRequestAction,
+  deleteMyOfferRequestAction,
+} from "./actions";
 
 export const metadata = { title: "Solicitudes" };
 
@@ -99,6 +103,16 @@ export default async function RequestsPage() {
                   </p>
                 </div>
                 <Badge tone={STATUS_TONE[b.status]}>{STATUS_LABEL[b.status]}</Badge>
+                <form action={deleteMyBookingRequestAction}>
+                  <input type="hidden" name="id" value={b.id} />
+                  <button
+                    type="submit"
+                    title="Eliminar solicitud"
+                    className="btn-danger !px-2.5 !py-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
@@ -124,6 +138,16 @@ export default async function RequestsPage() {
                   </p>
                 </div>
                 <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                <form action={deleteMyOfferRequestAction}>
+                  <input type="hidden" name="id" value={o.id} />
+                  <button
+                    type="submit"
+                    title="Eliminar solicitud"
+                    className="btn-danger !px-2.5 !py-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

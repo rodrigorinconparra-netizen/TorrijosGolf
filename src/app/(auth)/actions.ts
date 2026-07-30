@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
+import { handicapForLicense } from "@/lib/rfeg";
 
 export interface AuthFormState {
   error?: string;
@@ -89,6 +90,9 @@ export async function registerAction(
     .select({ n: sql<number>`count(*)::int` })
     .from(users);
 
+  // Trae el hándicap de la RFEG por la licencia (best-effort: si falla, null).
+  const handicapIndex = await handicapForLicense(data.license);
+
   const [user] = await db
     .insert(users)
     .values({
@@ -98,6 +102,7 @@ export async function registerAction(
       license: data.license,
       phone: data.phone,
       role: userCount === 0 ? "admin" : "alumno",
+      handicapIndex,
     })
     .returning();
 

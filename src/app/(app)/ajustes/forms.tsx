@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Save, KeyRound, Trash2 } from "lucide-react";
+import { Save, KeyRound, Trash2, RefreshCw } from "lucide-react";
 import {
   changePasswordAction,
   deleteAccountAction,
+  refreshMyHandicapAction,
   updateProfileAction,
   type ActionState,
 } from "./actions";
@@ -86,6 +87,38 @@ export function PasswordForm() {
       ) : null}
       <button type="submit" disabled={pending} className="btn-ghost">
         <KeyRound className="h-4 w-4" /> {pending ? "Actualizando…" : "Cambiar contraseña"}
+      </button>
+    </form>
+  );
+}
+
+/** Muestra el hándicap actual y permite refrescarlo desde la RFEG. */
+export function HandicapForm({ current }: { current: number | null }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    refreshMyHandicapAction,
+    {},
+  );
+  return (
+    <form action={action} className="space-y-3">
+      <p className="text-sm text-ink-soft">
+        Tu hándicap actual:{" "}
+        <strong className="text-ink">
+          {current ?? "—"}
+        </strong>
+      </p>
+      {state.error ? (
+        <p className="rounded-2xl bg-negative/10 px-4 py-2.5 text-sm text-negative">
+          {state.error}
+        </p>
+      ) : null}
+      {state.ok ? (
+        <p className="rounded-2xl bg-positive/10 px-4 py-2.5 text-sm text-positive">
+          {state.ok}
+        </p>
+      ) : null}
+      <button type="submit" disabled={pending} className="btn-ghost">
+        <RefreshCw className={`h-4 w-4 ${pending ? "animate-spin" : ""}`} />
+        {pending ? "Consultando RFEG…" : "Actualizar desde la RFEG"}
       </button>
     </form>
   );

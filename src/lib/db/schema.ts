@@ -70,6 +70,13 @@ export const users = pgTable("users", {
   phone: text("phone"),
   /** Tarifa por hora del profesor (para calcular horas trabajadas/ingresos). */
   hourlyRate: real("hourly_rate"),
+  /* --- Precios de clase que cobra el profesor a los alumnos (los fija el admin).
+   *     Individual vs grupal (por persona) × puntual vs mensual. --- */
+  priceIndividualPuntual: real("price_individual_puntual"),
+  priceIndividualMensual: real("price_individual_mensual"),
+  /** Precio grupal POR PERSONA. */
+  priceGrupalPuntual: real("price_grupal_puntual"),
+  priceGrupalMensual: real("price_grupal_mensual"),
   /** Opt-out global de push nativas (Ajustes). */
   pushEnabled: boolean("push_enabled").notNull().default(true),
   /** Si el usuario aparece en el buscador de personas del chat (Ajustes). */
@@ -623,8 +630,11 @@ export const bookingRequests = pgTable("booking_requests", {
   weekday: integer("weekday").notNull(),
   startTime: text("start_time").notNull(),
   durationMin: integer("duration_min").notNull().default(60),
+  /** Precio por persona (según la tarifa del profesor y el tipo elegido). */
   price: real("price").notNull().default(0),
   kind: bookingKindEnum("kind").notNull(),
+  /** Individual o grupal (el alumno lo elige al reservar). */
+  classKind: slotKindEnum("class_kind").notNull().default("individual"),
   /** Fecha concreta (solo reservas puntuales). */
   date: date("date"),
   note: text("note"),
@@ -635,6 +645,21 @@ export const bookingRequests = pgTable("booking_requests", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   decidedAt: timestamp("decided_at"),
 });
+
+/** Alumnos que el reservante añade a una reserva grupal (además de él mismo). */
+export const bookingRequestMembers = pgTable(
+  "booking_request_members",
+  {
+    id: serial("id").primaryKey(),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookingRequests.id, { onDelete: "cascade" }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("booking_member_unique").on(t.bookingId, t.studentId)],
+);
 
 /**
  * Propuesta de un profesor para cambiar el horario de una de sus horas. El admin

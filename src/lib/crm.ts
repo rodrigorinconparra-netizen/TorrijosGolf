@@ -41,6 +41,10 @@ export interface BasicUser {
   experienceYears: number | null;
   handicapIndex: number | null;
   sex: "hombre" | "mujer" | null;
+  priceIndividualPuntual: number | null;
+  priceIndividualMensual: number | null;
+  priceGrupalPuntual: number | null;
+  priceGrupalMensual: number | null;
   createdAt: Date;
 }
 
@@ -66,6 +70,10 @@ export async function getUserBasic(userId: number): Promise<BasicUser | null> {
     experienceYears: u.experienceYears,
     handicapIndex: u.handicapIndex,
     sex: u.sex,
+    priceIndividualPuntual: u.priceIndividualPuntual,
+    priceIndividualMensual: u.priceIndividualMensual,
+    priceGrupalPuntual: u.priceGrupalPuntual,
+    priceGrupalMensual: u.priceGrupalMensual,
     createdAt: u.createdAt,
   };
 }

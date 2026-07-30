@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/recordatorios",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/handicaps",
+      "schedule": "0 4 * * *"
     }
   ]
 }

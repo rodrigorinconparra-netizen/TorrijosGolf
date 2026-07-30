@@ -1,9 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CalendarCheck, Check, Lock } from "lucide-react";
+import { CalendarCheck, Check, Lock, User, Users } from "lucide-react";
 import { requestBookingAction, type BookingState } from "./actions";
 import { weekdayName } from "@/lib/utils";
+
+interface TeacherPrices {
+  individualPuntual: number | null;
+  individualMensual: number | null;
+  grupalPuntual: number | null;
+  grupalMensual: number | null;
+}
 
 interface Entry {
   weekday: number;
@@ -21,9 +28,10 @@ interface TeacherSchedule {
   id: number;
   name: string;
   entries: Entry[];
+  prices: TeacherPrices;
 }
 
-interface Child {
+interface Person {
   id: number;
   name: string;
 }
@@ -54,8 +62,27 @@ function labelDate(key: string): string {
   });
 }
 
+function priceFor(
+  prices: TeacherPrices,
+  classKind: "individual" | "grupal",
+  kind: "puntual" | "mensual",
+): number | null {
+  const key = `${classKind}${kind === "puntual" ? "Puntual" : "Mensual"}` as keyof TeacherPrices;
+  return prices[key];
+}
+
 /** Formulario de reserva de una hora libre concreta. */
-function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
+function BookSlot({
+  entry,
+  children,
+  prices,
+  classmates,
+}: {
+  entry: Entry;
+  children: Person[];
+  prices: TeacherPrices;
+  classmates: Person[];
+}) {
   const [state, action, pending] = useActionState<BookingState, FormData>(
     requestBookingAction,
     {},
@@ -68,6 +95,8 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
   const [kind, setKind] = useState<"puntual" | "mensual">(
     monthlyTaken ? "puntual" : "mensual",
   );
+  const [classKind, setClassKind] = useState<"individual" | "grupal">("individual");
+  const [members, setMembers] = useState<number[]>([]);
 
   if (state.ok) {
     return (
@@ -78,6 +107,10 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
   }
 
   const nothingFree = monthlyTaken && dates.length === 0;
+  const price = priceFor(prices, classKind, kind);
+
+  const toggleMember = (id: number) =>
+    setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
 
   return (
     <div>
@@ -96,7 +129,49 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
       ) : (
         <form action={action} className="mt-1 space-y-2 rounded-2xl bg-white/60 p-3">
           <input type="hidden" name="availabilityId" value={entry.availabilityId} />
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="classKind" value={classKind} />
 
+          <div className="flex items-baseline justify-between gap-2 border-b border-black/5 pb-2">
+            <span className="text-xs text-muted">
+              {weekdayName(entry.weekday)} · {entry.startTime} ({entry.durationMin} min)
+            </span>
+            {price != null && price > 0 ? (
+              <span className="text-sm font-semibold text-accent-deep">
+                {price} €{classKind === "grupal" ? " / persona" : ""}
+              </span>
+            ) : (
+              <span className="text-xs text-muted">Precio a confirmar</span>
+            )}
+          </div>
+
+          {/* Individual o grupal */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setClassKind("individual")}
+              className={
+                classKind === "individual"
+                  ? "btn-primary !px-3 !py-1.5 text-xs"
+                  : "btn-ghost !px-3 !py-1.5 text-xs"
+              }
+            >
+              <User className="h-3.5 w-3.5" /> Individual
+            </button>
+            <button
+              type="button"
+              onClick={() => setClassKind("grupal")}
+              className={
+                classKind === "grupal"
+                  ? "btn-primary !px-3 !py-1.5 text-xs"
+                  : "btn-ghost !px-3 !py-1.5 text-xs"
+              }
+            >
+              <Users className="h-3.5 w-3.5" /> Grupal
+            </button>
+          </div>
+
+          {/* Puntual o mensual */}
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -123,7 +198,6 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
               Un solo día
             </button>
           </div>
-          <input type="hidden" name="kind" value={kind} />
 
           {kind === "puntual" ? (
             dates.length === 0 ? (
@@ -146,6 +220,40 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
               {entry.startTime}.
             </p>
           )}
+
+          {/* Selección de compañeros (solo grupal) */}
+          {classKind === "grupal" ? (
+            <div className="rounded-xl bg-white/70 p-2">
+              <p className="mb-1.5 px-1 text-xs font-medium text-ink-soft">
+                ¿Quién forma el grupo? {members.length > 0 ? `(${members.length})` : ""}
+              </p>
+              {classmates.length === 0 ? (
+                <p className="px-1 text-xs text-muted">No hay más alumnos.</p>
+              ) : (
+                <div className="max-h-40 space-y-0.5 overflow-y-auto">
+                  {classmates.map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-black/5"
+                    >
+                      <input
+                        type="checkbox"
+                        name="memberIds"
+                        value={c.id}
+                        checked={members.includes(c.id)}
+                        onChange={() => toggleMember(c.id)}
+                        className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+                      />
+                      <span className="text-ink">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1 px-1 text-[11px] text-faint">
+                Tú ya cuentas como parte del grupo.
+              </p>
+            </div>
+          ) : null}
 
           {children.length > 0 ? (
             <select name="studentId" className="field !py-2 text-xs" defaultValue="">
@@ -196,9 +304,11 @@ function BookSlot({ entry, children }: { entry: Entry; children: Child[] }) {
 export function BookingClient({
   teachers,
   children,
+  classmates,
 }: {
   teachers: TeacherSchedule[];
-  children: Child[];
+  children: Person[];
+  classmates: Person[];
 }) {
   const [selected, setSelected] = useState<number>(teachers[0]?.id ?? 0);
   const teacher = teachers.find((t) => t.id === selected) ?? teachers[0];
@@ -253,15 +363,16 @@ export function BookingClient({
                         {e.startTime} ({e.durationMin} min)
                       </p>
                       <p className="text-xs text-muted">
-                        {e.status === "libre"
-                          ? e.price > 0
-                            ? `Libre · ${e.price} €`
-                            : "Libre"
-                          : "Ocupada"}
+                        {e.status === "libre" ? "Libre" : "Ocupada"}
                       </p>
                     </div>
                     {e.status === "libre" ? (
-                      <BookSlot entry={e} children={children} />
+                      <BookSlot
+                        entry={e}
+                        children={children}
+                        prices={teacher.prices}
+                        classmates={classmates}
+                      />
                     ) : (
                       <span className="flex items-center gap-1 text-xs text-faint">
                         <Lock className="h-3.5 w-3.5" /> No disponible

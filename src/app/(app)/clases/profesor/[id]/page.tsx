@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { ChevronLeft, Phone, CalendarPlus, GraduationCap } from "lucide-react";
 import { requireSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { studentSlots, upcomingOccurrences } from "@/lib/classes";
-import { teacherWeeklySchedule } from "@/lib/booking";
+import { teacherPrices, teacherWeeklySchedule } from "@/lib/booking";
 import { childrenOf } from "@/lib/queries";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, initials } from "@/lib/utils";
@@ -32,6 +32,14 @@ export default async function TeacherForStudentPage({
 
   const entries = await teacherWeeklySchedule(teacherId);
   const freeCount = entries.filter((e) => e.status === "libre").length;
+  const prices = await teacherPrices(teacherId);
+  const classmates = (
+    await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.role, "alumno"))
+      .orderBy(asc(users.name))
+  ).filter((s) => s.id !== user.userId);
 
   // Mis clases con este profesor (próximas 4 semanas).
   const mySlots = (await studentSlots(user.userId)).filter(
@@ -176,8 +184,9 @@ export default async function TeacherForStudentPage({
           </p>
         ) : (
           <BookingClient
-            teachers={[{ id: teacher.id, name: teacher.name, entries }]}
+            teachers={[{ id: teacher.id, name: teacher.name, entries, prices }]}
             children={kids.map((k) => ({ id: k.id, name: k.name }))}
+            classmates={classmates}
           />
         )}
       </section>

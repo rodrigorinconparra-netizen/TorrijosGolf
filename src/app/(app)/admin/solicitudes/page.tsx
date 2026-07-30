@@ -2,6 +2,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Check, X, Inbox, Clock, CalendarCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import {
+  bookingRequestMembers,
   bookingRequests,
   classRequestStudents,
   classRequests,
@@ -107,6 +108,7 @@ export default async function AdminRequestsPage() {
       durationMin: bookingRequests.durationMin,
       price: bookingRequests.price,
       kind: bookingRequests.kind,
+      classKind: bookingRequests.classKind,
       date: bookingRequests.date,
       note: bookingRequests.note,
     })
@@ -115,6 +117,28 @@ export default async function AdminRequestsPage() {
     .innerJoin(teacherU, eq(teacherU.id, bookingRequests.teacherId))
     .where(eq(bookingRequests.status, "pendiente"))
     .orderBy(desc(bookingRequests.createdAt));
+
+  // Compañeros de las reservas grupales pendientes.
+  const groupBookingIds = bookingRows
+    .filter((r) => r.classKind === "grupal")
+    .map((r) => r.id);
+  const bookingMemberRows = groupBookingIds.length
+    ? await db
+        .select({
+          bookingId: bookingRequestMembers.bookingId,
+          name: users.name,
+        })
+        .from(bookingRequestMembers)
+        .innerJoin(users, eq(users.id, bookingRequestMembers.studentId))
+        .where(inArray(bookingRequestMembers.bookingId, groupBookingIds))
+    : [];
+  const membersByBooking = new Map<number, string[]>();
+  for (const m of bookingMemberRows) {
+    membersByBooking.set(m.bookingId, [
+      ...(membersByBooking.get(m.bookingId) ?? []),
+      m.name,
+    ]);
+  }
 
   return (
     <div className="space-y-6">
@@ -230,6 +254,9 @@ export default async function AdminRequestsPage() {
                     <CalendarCheck className="h-4 w-4" />
                   </span>
                   <p className="text-sm font-semibold text-ink">{r.studentName}</p>
+                  <Badge tone={r.classKind === "grupal" ? "accent" : "neutral"}>
+                    {r.classKind === "grupal" ? "Grupal" : "Individual"}
+                  </Badge>
                   <Badge tone={r.kind === "mensual" ? "accent" : "neutral"}>
                     {r.kind === "mensual" ? "Mensual" : "Puntual"}
                   </Badge>
@@ -240,7 +267,18 @@ export default async function AdminRequestsPage() {
                     ? `${formatDate(r.date)} ${r.startTime}`
                     : `${weekdayName(r.weekday)} ${r.startTime}`}{" "}
                   ({r.durationMin} min)
+                  {r.price > 0
+                    ? ` · ${formatEuro(r.price)}${r.classKind === "grupal" ? "/persona" : ""}`
+                    : ""}
                 </p>
+                {r.classKind === "grupal" ? (
+                  <p className="mt-1 text-xs text-muted">
+                    Grupo: {r.studentName}
+                    {(membersByBooking.get(r.id) ?? []).length > 0
+                      ? `, ${(membersByBooking.get(r.id) ?? []).join(", ")}`
+                      : " (sin más miembros)"}
+                  </p>
+                ) : null}
                 {r.note ? (
                   <p className="mt-1 text-xs text-muted">Nota: {r.note}</p>
                 ) : null}

@@ -9,6 +9,7 @@ import { users } from "@/lib/db/schema";
 import { requireSession, destroySession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { parseTeacherProfile } from "@/lib/teacher-profile";
+import { fetchHandicapByLicense, handicapForLicense } from "@/lib/rfeg";
 
 export interface ActionState {
   error?: string;
@@ -60,6 +61,13 @@ export async function updateProfileAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
   }
+
+  const [current] = await db
+    .select({ license: users.license })
+    .from(users)
+    .where(eq(users.id, user.userId))
+    .limit(1);
+
   await db
     .update(users)
     .set({
@@ -68,8 +76,54 @@ export async function updateProfileAction(
       license: parsed.data.license,
     })
     .where(eq(users.id, user.userId));
+
+  // Si la licencia es nueva o ha cambiado, intenta traer el hándicap de la RFEG
+  // (best-effort: si falla, el perfil se guarda igual).
+  let hcpNote = "";
+  if (parsed.data.license && parsed.data.license !== current?.license) {
+    const hcp = await handicapForLicense(parsed.data.license);
+    if (hcp !== null) {
+      await db
+        .update(users)
+        .set({ handicapIndex: hcp })
+        .where(eq(users.id, user.userId));
+      hcpNote = ` Hándicap actualizado: ${hcp}.`;
+    }
+  }
+
   revalidatePath("/ajustes");
-  return { ok: "Perfil actualizado" };
+  return { ok: `Perfil actualizado.${hcpNote}` };
+}
+
+/** Botón manual: refresca el hándicap del usuario desde la RFEG por su licencia. */
+export async function refreshMyHandicapAction(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  const user = await requireSession();
+  const [row] = await db
+    .select({ license: users.license })
+    .from(users)
+    .where(eq(users.id, user.userId))
+    .limit(1);
+  if (!row?.license) {
+    return { error: "Añade primero tu número de licencia en el perfil." };
+  }
+
+  const res = await fetchHandicapByLicense(row.license);
+  const hcp = res ? res.handicap : null;
+  if (hcp === null) {
+    return {
+      error:
+        "No hemos podido obtener tu hándicap de la RFEG. Comprueba que tu licencia es correcta.",
+    };
+  }
+
+  await db.update(users).set({ handicapIndex: hcp }).where(eq(users.id, user.userId));
+  revalidatePath("/ajustes");
+  return {
+    ok: `Hándicap actualizado: ${hcp}${res?.name ? ` · ${res.name}` : ""}.`,
+  };
 }
 
 const passwordSchema = z

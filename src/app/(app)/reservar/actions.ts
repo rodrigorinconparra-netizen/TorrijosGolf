@@ -1,13 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { bookingRequests, teacherAvailability, users } from "@/lib/db/schema";
+import {
+  bookingRequestMembers,
+  bookingRequests,
+  teacherAvailability,
+  users,
+} from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { isGuardianOf } from "@/lib/queries";
-import { hasBookingConflict } from "@/lib/booking";
+import { hasBookingConflict, priceFor, teacherPrices } from "@/lib/booking";
 import { notifyUsers } from "@/lib/notify";
 import { isoWeekday } from "@/lib/utils";
 
@@ -19,6 +24,7 @@ export interface BookingState {
 const bookingSchema = z.object({
   availabilityId: z.coerce.number().int().positive(),
   kind: z.enum(["puntual", "mensual"]),
+  classKind: z.enum(["individual", "grupal"]).default("individual"),
   date: z.string().optional(),
   studentId: z.coerce.number().int().positive().optional(),
   note: z.string().trim().max(300).optional(),
@@ -37,6 +43,7 @@ export async function requestBookingAction(
   const parsed = bookingSchema.safeParse({
     availabilityId: formData.get("availabilityId"),
     kind: formData.get("kind"),
+    classKind: formData.get("classKind") || undefined,
     date: formData.get("date") || undefined,
     studentId: formData.get("studentId") || undefined,
     note: formData.get("note") || undefined,
@@ -45,6 +52,13 @@ export async function requestBookingAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
   }
   const d = parsed.data;
+
+  // Compañeros del grupo (solo grupal): ids de alumnos, sin uno mismo.
+  const rawMembers = formData
+    .getAll("memberIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && n > 0 && n !== user.userId);
+  const memberIds = [...new Set(rawMembers)];
 
   // ¿Para quién es la clase? El propio alumno o un hijo suyo.
   let studentId = user.userId;
@@ -95,18 +109,40 @@ export async function requestBookingAction(
     };
   }
 
-  await db.insert(bookingRequests).values({
-    studentId,
-    teacherId: av.teacherId,
-    availabilityId: av.id,
-    weekday: av.weekday,
-    startTime: av.startTime,
-    durationMin: av.durationMin,
-    price: av.price,
-    kind: d.kind,
-    date,
-    note: d.note,
-  });
+  // Precio por persona según la tarifa del profesor y el tipo elegido.
+  const prices = await teacherPrices(av.teacherId);
+  const price = priceFor(prices, d.classKind, d.kind);
+
+  const [booking] = await db
+    .insert(bookingRequests)
+    .values({
+      studentId,
+      teacherId: av.teacherId,
+      availabilityId: av.id,
+      weekday: av.weekday,
+      startTime: av.startTime,
+      durationMin: av.durationMin,
+      price,
+      kind: d.kind,
+      classKind: d.classKind,
+      date,
+      note: d.note,
+    })
+    .returning({ id: bookingRequests.id });
+
+  // Miembros del grupo: validamos que sean alumnos reales.
+  if (d.classKind === "grupal" && memberIds.length > 0 && booking) {
+    const valid = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.id, memberIds), eq(users.role, "alumno")));
+    if (valid.length > 0) {
+      await db
+        .insert(bookingRequestMembers)
+        .values(valid.map((m) => ({ bookingId: booking.id, studentId: m.id })))
+        .onConflictDoNothing();
+    }
+  }
 
   const admins = await db
     .select({ id: users.id })
@@ -117,7 +153,7 @@ export async function requestBookingAction(
     {
       type: "clase",
       title: "Nueva reserva por confirmar",
-      body: `${user.name} ha reservado una clase ${d.kind === "mensual" ? "semanal" : "puntual"}. Revísala en Solicitudes.`,
+      body: `${user.name} ha reservado una clase ${d.classKind === "grupal" ? "grupal" : "individual"} ${d.kind === "mensual" ? "semanal" : "puntual"}. Revísala en Solicitudes.`,
       link: "/admin/solicitudes",
     },
   );

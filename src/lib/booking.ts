@@ -236,3 +236,46 @@ export async function allTeachers(): Promise<{ id: number; name: string }[]> {
     .where(eq(users.role, "profesor"))
     .orderBy(asc(users.name));
 }
+
+export interface TeacherPrices {
+  /** Individual (una persona) puntual/mensual. */
+  individualPuntual: number | null;
+  individualMensual: number | null;
+  /** Grupal POR PERSONA, puntual/mensual. */
+  grupalPuntual: number | null;
+  grupalMensual: number | null;
+}
+
+const priceCols = {
+  individualPuntual: users.priceIndividualPuntual,
+  individualMensual: users.priceIndividualMensual,
+  grupalPuntual: users.priceGrupalPuntual,
+  grupalMensual: users.priceGrupalMensual,
+} as const;
+
+/** Precios de clase de un profesor (los que ve el alumno al reservar). */
+export async function teacherPrices(teacherId: number): Promise<TeacherPrices> {
+  const [row] = await db
+    .select(priceCols)
+    .from(users)
+    .where(eq(users.id, teacherId))
+    .limit(1);
+  return (
+    row ?? {
+      individualPuntual: null,
+      individualMensual: null,
+      grupalPuntual: null,
+      grupalMensual: null,
+    }
+  );
+}
+
+/** Devuelve el precio concreto para una combinación (server-side, fuente de verdad). */
+export function priceFor(
+  prices: TeacherPrices,
+  classKind: "individual" | "grupal",
+  kind: "puntual" | "mensual",
+): number {
+  const key = `${classKind}${kind === "puntual" ? "Puntual" : "Mensual"}` as keyof TeacherPrices;
+  return prices[key] ?? 0;
+}

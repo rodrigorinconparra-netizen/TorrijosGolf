@@ -18,6 +18,7 @@ import { getUserBasic, studentCrm, teacherCrm, familyOf } from "@/lib/crm";
 import { TeacherProfileForm } from "@/components/teacher-profile-form";
 import { updateTeacherProfileAction } from "../../actions";
 import { GolfDataForm } from "./golf-form";
+import { TeacherPricesForm } from "./prices-form";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatEuro, weekdayName, initials } from "@/lib/utils";
@@ -153,6 +154,25 @@ export default async function UserCrmPage({
             sex={user.sex ?? ""}
           />
       </section>
+
+      {user.role === "profesor" ? (
+        <section className="glass p-6">
+          <h2 className="font-semibold">Precios de clases</h2>
+          <p className="mb-4 mt-1 text-sm text-muted">
+            Lo que paga el alumno al reservar con este profesor. El grupal es por
+            persona. Déjalo vacío si no ofrece ese tipo de clase.
+          </p>
+          <TeacherPricesForm
+            userId={userId}
+            defaults={{
+              priceIndividualPuntual: user.priceIndividualPuntual?.toString() ?? "",
+              priceIndividualMensual: user.priceIndividualMensual?.toString() ?? "",
+              priceGrupalPuntual: user.priceGrupalPuntual?.toString() ?? "",
+              priceGrupalMensual: user.priceGrupalMensual?.toString() ?? "",
+            }}
+          />
+        </section>
+      ) : null}
 
       {user.role === "profesor" ? (
         <section className="glass p-6">

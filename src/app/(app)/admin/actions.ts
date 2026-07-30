@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
+  bookingRequestMembers,
   bookingRequests,
   classRequests,
   classRequestStudents,
@@ -83,6 +84,35 @@ export async function updateGolfDataAction(
     .where(eq(users.id, userId));
   revalidatePath(`/admin/usuarios/${userId}`);
   return { ok: "Datos de juego actualizados" };
+}
+
+/** Precio de clase que cobra un profesor: individual/grupal × puntual/mensual. */
+function parsePrice(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? "").trim().replace(",", ".");
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+export async function updateTeacherPricesAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+  const userId = Number(formData.get("userId"));
+  if (!userId) return { error: "Usuario no válido" };
+
+  await db
+    .update(users)
+    .set({
+      priceIndividualPuntual: parsePrice(formData.get("priceIndividualPuntual")),
+      priceIndividualMensual: parsePrice(formData.get("priceIndividualMensual")),
+      priceGrupalPuntual: parsePrice(formData.get("priceGrupalPuntual")),
+      priceGrupalMensual: parsePrice(formData.get("priceGrupalMensual")),
+    })
+    .where(eq(users.id, userId));
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: "Precios de clases actualizados" };
 }
 
 /* ----------------------------------------------------------------------------
@@ -768,16 +798,67 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
     return;
   }
 
-  await db.insert(slots).values({
-    teacherId: b.teacherId,
-    weekday: b.weekday,
-    startTime: b.startTime,
-    durationMin: b.durationMin,
-    kind: "individual",
-    studentId: b.studentId,
-    price,
-    oneOffDate: b.kind === "puntual" ? b.date : null,
-  });
+  const oneOffDate = b.kind === "puntual" ? b.date : null;
+
+  if (b.classKind === "grupal") {
+    // Grupo con el reservante + los compañeros que eligió.
+    const extra = await db
+      .select({ id: bookingRequestMembers.studentId })
+      .from(bookingRequestMembers)
+      .where(eq(bookingRequestMembers.bookingId, b.id));
+    const memberIds = [...new Set([b.studentId, ...extra.map((m) => m.id)])];
+
+    const [stu] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, b.studentId))
+      .limit(1);
+
+    const [group] = await db
+      .insert(groups)
+      .values({
+        name: `Grupo de ${stu?.name ?? "alumno"} · ${b.startTime}`,
+        teacherId: b.teacherId,
+      })
+      .returning({ id: groups.id });
+
+    await db
+      .insert(groupMembers)
+      .values(memberIds.map((id) => ({ groupId: group.id, studentId: id })))
+      .onConflictDoNothing();
+    await db
+      .insert(teacherStudents)
+      .values(memberIds.map((id) => ({ teacherId: b.teacherId, studentId: id })))
+      .onConflictDoNothing();
+    await ensureGroupConversation(group.id);
+
+    await db.insert(slots).values({
+      teacherId: b.teacherId,
+      weekday: b.weekday,
+      startTime: b.startTime,
+      durationMin: b.durationMin,
+      kind: "grupal",
+      groupId: group.id,
+      price,
+      oneOffDate,
+    });
+  } else {
+    await db.insert(slots).values({
+      teacherId: b.teacherId,
+      weekday: b.weekday,
+      startTime: b.startTime,
+      durationMin: b.durationMin,
+      kind: "individual",
+      studentId: b.studentId,
+      price,
+      oneOffDate,
+    });
+    // El alumno queda vinculado al profesor.
+    await db
+      .insert(teacherStudents)
+      .values({ teacherId: b.teacherId, studentId: b.studentId })
+      .onConflictDoNothing();
+  }
 
   // Una reserva mensual ocupa esa hora: retiramos la disponibilidad recurrente.
   if (b.kind === "mensual" && b.availabilityId) {
@@ -786,12 +867,6 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
       .set({ active: false })
       .where(eq(teacherAvailability.id, b.availabilityId));
   }
-
-  // El alumno queda vinculado al profesor.
-  await db
-    .insert(teacherStudents)
-    .values({ teacherId: b.teacherId, studentId: b.studentId })
-    .onConflictDoNothing();
 
   await db
     .update(bookingRequests)
