@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarPlus, Flag, Inbox, Tag, Trash2 } from "lucide-react";
+import { CalendarPlus, Inbox, Tag, Trash2 } from "lucide-react";
 import { requireSession } from "@/lib/auth/session";
 import { myBookingRequests, myOfferRequests } from "@/lib/requests";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,12 +12,6 @@ import {
 } from "./actions";
 
 export const metadata = { title: "Solicitudes" };
-
-// Reservas de greenfee: mismo enlace configurable que en Inicio.
-const TEEONE_URL =
-  process.env.NEXT_PUBLIC_TEEONE_VISITANTES_URL ??
-  process.env.NEXT_PUBLIC_GREENFEE_URL ??
-  "https://reservas.teeone.golf";
 
 const STATUS_TONE = {
   pendiente: "warning",
@@ -60,14 +54,6 @@ export default async function RequestsPage() {
           <Link href="/clases" className="btn-ghost">
             <Tag className="h-4 w-4" /> Solicitar una oferta
           </Link>
-          <a
-            href={TEEONE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-ghost"
-          >
-            <Flag className="h-4 w-4" /> Reservar greenfee
-          </a>
         </div>
       </section>
 

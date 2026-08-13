@@ -1,4 +1,7 @@
+import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 import { PageHeader } from "@/components/ui/page-header";
 import { TORRIJOS } from "@/lib/course";
 import { HandicapCard } from "./handicap-card";
@@ -6,7 +9,19 @@ import { HandicapCard } from "./handicap-card";
 export const metadata = { title: "Campo" };
 
 export default async function CoursePage() {
-  await requireSession();
+  const user = await requireSession();
+  const [me] = await db
+    .select({ handicapIndex: users.handicapIndex, sex: users.sex })
+    .from(users)
+    .where(eq(users.id, user.userId))
+    .limit(1);
+  // El hándicap se guarda como number (WHS actualizado desde la RFEG). En el
+  // input lo mostramos con coma decimal, que es como se escribe en España.
+  const defaultIndex =
+    me?.handicapIndex != null
+      ? me.handicapIndex.toString().replace(".", ",")
+      : "";
+  const defaultSexo: "hombre" | "mujer" = me?.sex === "mujer" ? "mujer" : "hombre";
 
   const sc = TORRIJOS.scorecard;
   const ida = sc.slice(0, 9);
@@ -68,7 +83,7 @@ export default async function CoursePage() {
       </section>
 
       {/* Calculadora de golpes por hoyo */}
-      <HandicapCard />
+      <HandicapCard defaultIndex={defaultIndex} defaultSexo={defaultSexo} />
 
       {/* Tarjeta / scorecard */}
       <section className="glass p-6">

@@ -1,9 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Dumbbell, CheckCircle2, Circle, Trash2 } from "lucide-react";
-import { initials } from "@/lib/utils";
+import {
+  Send,
+  Dumbbell,
+  CheckCircle2,
+  Circle,
+  Trash2,
+  CalendarCheck,
+  Check,
+  X,
+  Users,
+  User,
+} from "lucide-react";
+import { formatDate, initials, weekdayName } from "@/lib/utils";
 import { toggleTrainingAction } from "@/app/(app)/clases/actions";
+import {
+  acceptBookingAction,
+  rejectBookingAction,
+} from "@/app/(app)/admin/actions";
 import { sendMessageAction, deleteMessageAction } from "../actions";
 
 interface TrainingCard {
@@ -18,6 +33,23 @@ interface TrainingCard {
   myCompleted: boolean;
 }
 
+interface BookingCard {
+  id: number;
+  studentId: number;
+  studentName: string;
+  teacherId: number;
+  teacherName: string;
+  weekday: number;
+  startTime: string;
+  durationMin: number;
+  price: number;
+  kind: "puntual" | "mensual";
+  classKind: "individual" | "grupal";
+  date: string | null;
+  status: "pendiente" | "aceptada" | "rechazada";
+  members: string[];
+}
+
 interface Msg {
   id: number;
   senderId: number;
@@ -26,6 +58,7 @@ interface Msg {
   body: string;
   createdAt: string;
   training?: TrainingCard;
+  booking?: BookingCard;
 }
 
 /** Tarjeta de entrenamiento dentro del chat, con progreso y quién lo completó. */
@@ -112,6 +145,118 @@ function TrainingBubble({
           </button>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Tarjeta de reserva dentro del chat (estilo Wallapop): el alumno reserva y el
+ * profesor recibe una tarjeta con la info y botones Aceptar/Rechazar. El estado
+ * refleja lo real de la reserva (se actualiza en el próximo poll).
+ */
+function BookingBubble({
+  b,
+  canDecide,
+  body,
+  time,
+}: {
+  b: BookingCard;
+  canDecide: boolean;
+  body: string;
+  time: string;
+}) {
+  const whenLabel =
+    b.kind === "puntual" && b.date
+      ? formatDate(b.date)
+      : `los ${weekdayName(b.weekday).toLowerCase()}`;
+  const priceLabel =
+    b.price > 0
+      ? `${b.price} €${b.classKind === "grupal" ? "/persona" : ""}`
+      : "Sin precio";
+
+  return (
+    <div className="w-full max-w-[92%] rounded-2xl border border-accent/20 bg-white p-3.5 text-ink shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
+          <CalendarCheck className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-accent-deep">
+            Reserva de clase
+          </p>
+          <p className="truncate text-sm font-semibold">
+            {b.studentName} → {b.teacherName}
+          </p>
+        </div>
+        <span
+          className={
+            b.status === "aceptada"
+              ? "rounded-full bg-positive/15 px-2.5 py-0.5 text-[11px] font-semibold text-positive"
+              : b.status === "rechazada"
+                ? "rounded-full bg-negative/15 px-2.5 py-0.5 text-[11px] font-semibold text-negative"
+                : "rounded-full bg-warning/20 px-2.5 py-0.5 text-[11px] font-semibold text-[#9a6500]"
+          }
+        >
+          {b.status === "aceptada"
+            ? "Aceptada"
+            : b.status === "rechazada"
+              ? "Rechazada"
+              : "Pendiente"}
+        </span>
+      </div>
+
+      <ul className="mt-2.5 space-y-1 text-sm text-ink-soft">
+        <li className="flex items-center gap-1.5">
+          {b.classKind === "grupal" ? (
+            <Users className="h-3.5 w-3.5 text-muted" />
+          ) : (
+            <User className="h-3.5 w-3.5 text-muted" />
+          )}
+          <span>
+            {b.classKind === "grupal" ? "Grupal" : "Individual"} ·{" "}
+            {b.kind === "mensual" ? "Semanal" : "Un solo día"}
+          </span>
+        </li>
+        <li>
+          <span className="text-muted">Cuándo: </span>
+          {whenLabel} a las {b.startTime} ({b.durationMin} min)
+        </li>
+        <li>
+          <span className="text-muted">Precio: </span>
+          <span className="font-semibold text-accent-deep">{priceLabel}</span>
+        </li>
+        {b.classKind === "grupal" && b.members.length > 0 ? (
+          <li>
+            <span className="text-muted">Grupo: </span>
+            {b.studentName}, {b.members.join(", ")}
+          </li>
+        ) : null}
+      </ul>
+
+      {body ? (
+        <p className="mt-2.5 rounded-xl bg-cream-deep/60 px-3 py-2 text-sm italic text-ink-soft">
+          «{body}»
+        </p>
+      ) : null}
+
+      {b.status === "pendiente" && canDecide ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <form action={acceptBookingAction} className="flex-1">
+            <input type="hidden" name="bookingId" value={b.id} />
+            <button type="submit" className="btn-primary w-full !py-2 text-sm">
+              <Check className="h-4 w-4" /> Aceptar
+            </button>
+          </form>
+          <form action={rejectBookingAction} className="flex-1">
+            <input type="hidden" name="bookingId" value={b.id} />
+            <button type="submit" className="btn-danger w-full !py-2 text-sm">
+              <X className="h-4 w-4" /> Rechazar
+            </button>
+          </form>
+        </div>
+      ) : null}
+
+      <p className="mt-2 text-right text-[10px] text-faint">{time}</p>
     </div>
   );
 }
@@ -211,6 +356,22 @@ export function Thread({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             ) : null;
+
+            // Las tarjetas de reserva (Wallapop) se muestran centradas; sus
+            // botones aparecen solo si quien mira puede decidir (profesor de la
+            // reserva o admin).
+            if (m.booking) {
+              const canDecide = me === m.booking.teacherId || isAdmin;
+              const time = new Date(m.createdAt).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <div key={m.id} className="flex justify-center">
+                  <BookingBubble b={m.booking} canDecide={canDecide} body={m.body} time={time} />
+                </div>
+              );
+            }
 
             // Los entrenamientos se muestran como tarjeta, centrados en el hilo.
             if (m.training) {

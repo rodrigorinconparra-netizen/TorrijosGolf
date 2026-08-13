@@ -35,10 +35,14 @@ function getSecret(): Uint8Array {
 }
 
 export async function signToken(payload: SessionPayload): Promise<string> {
+  // Sesión "prácticamente infinita": el usuario no vuelve a ver la pantalla de
+  // login salvo que cierre sesión o borre la cookie. Se sigue invalidando al
+  // borrar la cuenta (destroySession) o al eliminar al usuario en la DB (los
+  // handlers no encuentran el user y protegen las rutas).
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime("10y")
     .sign(getSecret());
 }
 

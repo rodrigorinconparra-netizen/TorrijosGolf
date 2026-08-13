@@ -24,11 +24,34 @@ export const viewport: Viewport = {
   themeColor: "#1f6c5c",
 };
 
+/**
+ * Aplica el tema (claro/oscuro) antes del primer paint para evitar un flash de
+ * color. Lee la preferencia guardada en localStorage; si no hay ninguna, usa
+ * modo día (light). "system" sigue la preferencia del sistema operativo.
+ */
+const themeInitScript = `
+(function () {
+  try {
+    var t = localStorage.getItem("torrijos-theme");
+    var mode = t === "dark" || t === "light" || t === "system" ? t : "light";
+    var dark = mode === "dark" ||
+      (mode === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  } catch (_e) {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+})();
+`.trim();
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="es" data-theme="light">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className={`${geistSans.variable} antialiased`}>{children}</body>
     </html>
   );

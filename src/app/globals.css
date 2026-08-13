@@ -36,25 +36,25 @@
 /*
  * Tema oscuro token-driven: Tailwind v4 resuelve `bg-white/70` o `border-black/8`
  * a través de var(--color-white/black), así que sobrescribir los tokens
- * re-skinea toda la app. Sigue la preferencia del sistema.
+ * re-skinea toda la app. Se activa poniendo `data-theme="dark"` en <html>
+ * (lo hace el script del layout raíz según la preferencia guardada; por
+ * defecto es modo día).
  */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --color-cream: #0f1312;
-    --color-cream-deep: #161b19;
-    --color-sand: #1d2421;
-    --color-sand-deep: #2a332f;
-    --color-ink: #f4f4f6;
-    --color-ink-soft: #d7d7dc;
-    --color-muted: #9d9da5;
-    --color-faint: #6e6e77;
-    --color-accent: #3c8a77;
-    --color-accent-soft: #55a38f;
-    --color-accent-deep: #4d9c87;
-    --color-white: #1b211f;
-    --color-black: #ffffff;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-cream: #0f1312;
+  --color-cream-deep: #161b19;
+  --color-sand: #1d2421;
+  --color-sand-deep: #2a332f;
+  --color-ink: #f4f4f6;
+  --color-ink-soft: #d7d7dc;
+  --color-muted: #9d9da5;
+  --color-faint: #6e6e77;
+  --color-accent: #3c8a77;
+  --color-accent-soft: #55a38f;
+  --color-accent-deep: #4d9c87;
+  --color-white: #1b211f;
+  --color-black: #ffffff;
 }
 
 html,
@@ -74,14 +74,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background:
-      radial-gradient(1200px 620px at 82% -12%, rgba(60, 138, 119, 0.14), transparent 60%),
-      radial-gradient(1000px 520px at -12% 6%, rgba(42, 51, 47, 0.5), transparent 55%),
-      var(--color-cream);
-    background-attachment: fixed;
-  }
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(1200px 620px at 82% -12%, rgba(60, 138, 119, 0.14), transparent 60%),
+    radial-gradient(1000px 520px at -12% 6%, rgba(42, 51, 47, 0.5), transparent 55%),
+    var(--color-cream);
+  background-attachment: fixed;
 }
 
 @layer components {

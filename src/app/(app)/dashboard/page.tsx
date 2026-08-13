@@ -4,7 +4,6 @@ import {
   CalendarPlus,
   Clock,
   Euro,
-  Flag,
   GraduationCap,
   TrendingUp,
   Users,
@@ -39,16 +38,6 @@ import { ChildForm } from "@/app/(app)/hijos/child-form";
 import { formatDate, formatDateTime, formatEuro, toDateKey, initials } from "@/lib/utils";
 
 export const metadata = { title: "Inicio" };
-
-// Reservas de pista/greenfee: gestionadas en el portal web de teeone, que ofrece
-// entornos distintos para socios y visitantes. Solo hacen falta las URLs (no las
-// claves de API, que únicamente sirven para leer el estadillo en la sección Pista).
-// Configurables por env; si no hay URL de socios, se muestra un único botón.
-const TEEONE_SOCIOS_URL = process.env.NEXT_PUBLIC_TEEONE_SOCIOS_URL;
-const TEEONE_VISITANTES_URL =
-  process.env.NEXT_PUBLIC_TEEONE_VISITANTES_URL ??
-  process.env.NEXT_PUBLIC_GREENFEE_URL ??
-  "https://reservas.teeone.golf";
 
 function monthRange(): { from: string; to: string } {
   const now = new Date();
@@ -406,26 +395,7 @@ export default async function DashboardPage() {
 
       {user.role === "alumno" ? (
         <div className="flex flex-wrap gap-3">
-          {TEEONE_SOCIOS_URL ? (
-            <a
-              href={TEEONE_SOCIOS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-primary"
-            >
-              <Flag className="h-4 w-4" /> Reservar greenfee (socio)
-            </a>
-          ) : null}
-          <a
-            href={TEEONE_VISITANTES_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={TEEONE_SOCIOS_URL ? "btn-ghost" : "btn-primary"}
-          >
-            <Flag className="h-4 w-4" /> Reservar greenfee
-            {TEEONE_SOCIOS_URL ? " (visitante)" : ""}
-          </a>
-          <Link href="/reservar" className="btn-ghost">
+          <Link href="/reservar" className="btn-primary">
             <CalendarPlus className="h-4 w-4" /> Reservar clase
           </Link>
         </div>

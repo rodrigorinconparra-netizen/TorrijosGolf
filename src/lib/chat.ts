@@ -3,6 +3,8 @@ import { and, asc, eq, gt, ilike, inArray, isNull, ne, or, sql } from "drizzle-o
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
+  bookingRequestMembers,
+  bookingRequests,
   conversationMembers,
   conversations,
   groupMembers,
@@ -228,6 +230,23 @@ export interface TrainingCard {
   myCompleted: boolean;
 }
 
+export interface BookingCard {
+  id: number;
+  studentId: number;
+  studentName: string;
+  teacherId: number;
+  teacherName: string;
+  weekday: number;
+  startTime: string;
+  durationMin: number;
+  price: number;
+  kind: "puntual" | "mensual";
+  classKind: "individual" | "grupal";
+  date: string | null;
+  status: "pendiente" | "aceptada" | "rechazada";
+  members: string[];
+}
+
 export interface ChatMessage {
   id: number;
   senderId: number;
@@ -238,6 +257,8 @@ export interface ChatMessage {
   createdAt: Date;
   /** Presente si el mensaje es un entrenamiento enviado al grupo. */
   training?: TrainingCard;
+  /** Presente si el mensaje es una tarjeta de reserva (estilo Wallapop). */
+  booking?: BookingCard;
 }
 
 /**
@@ -256,6 +277,7 @@ export async function conversationThread(
       senderName: users.name,
       body: messages.body,
       trainingId: messages.trainingId,
+      bookingId: messages.bookingId,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -305,6 +327,54 @@ export async function conversationThread(
     }
   }
 
+  // Tarjetas de reserva referenciadas por los mensajes de este hilo.
+  const bookingIds = [
+    ...new Set(rows.map((r) => r.bookingId).filter((id): id is number => id != null)),
+  ];
+  const bookingCards = new Map<number, BookingCard>();
+  if (bookingIds.length) {
+    const studentU = alias(users, "student_u");
+    const teacherU = alias(users, "teacher_u");
+    const bRows = await db
+      .select({
+        id: bookingRequests.id,
+        studentId: bookingRequests.studentId,
+        studentName: studentU.name,
+        teacherId: bookingRequests.teacherId,
+        teacherName: teacherU.name,
+        weekday: bookingRequests.weekday,
+        startTime: bookingRequests.startTime,
+        durationMin: bookingRequests.durationMin,
+        price: bookingRequests.price,
+        kind: bookingRequests.kind,
+        classKind: bookingRequests.classKind,
+        date: bookingRequests.date,
+        status: bookingRequests.status,
+      })
+      .from(bookingRequests)
+      .innerJoin(studentU, eq(studentU.id, bookingRequests.studentId))
+      .innerJoin(teacherU, eq(teacherU.id, bookingRequests.teacherId))
+      .where(inArray(bookingRequests.id, bookingIds));
+    for (const b of bRows) {
+      bookingCards.set(b.id, { ...b, members: [] });
+    }
+    // Miembros de las reservas grupales (aparte del reservante).
+    const groupBookingIds = bRows
+      .filter((b) => b.classKind === "grupal")
+      .map((b) => b.id);
+    if (groupBookingIds.length) {
+      const memberRows = await db
+        .select({ bookingId: bookingRequestMembers.bookingId, name: users.name })
+        .from(bookingRequestMembers)
+        .innerJoin(users, eq(users.id, bookingRequestMembers.studentId))
+        .where(inArray(bookingRequestMembers.bookingId, groupBookingIds));
+      for (const m of memberRows) {
+        const card = bookingCards.get(m.bookingId);
+        if (card) card.members.push(m.name);
+      }
+    }
+  }
+
   return rows.map((r) => {
     const disp = displayBy.get(r.senderId);
     return {
@@ -315,6 +385,7 @@ export async function conversationThread(
       body: r.body,
       createdAt: r.createdAt,
       training: r.trainingId ? cards.get(r.trainingId) : undefined,
+      booking: r.bookingId ? bookingCards.get(r.bookingId) : undefined,
     };
   });
 }
@@ -344,6 +415,29 @@ export async function postGroupTrainingMessage(
     body: `📋 Nuevo entrenamiento: ${title}`,
     trainingId,
   });
+}
+
+/**
+ * Publica una tarjeta de reserva en el DM entre alumno y profesor (estilo
+ * Wallapop): asegura el DM, inserta un primer mensaje con el resumen y enlaza
+ * el `bookingId` para que la UI del chat pueda pintar la tarjeta y las acciones
+ * (aceptar/rechazar) según el estado actual y el rol del que mira. Devuelve el
+ * id de la conversación por si quien llama quiere enlazar a ella.
+ */
+export async function postBookingCardMessage(
+  senderId: number,
+  recipientId: number,
+  bookingId: number,
+  body: string,
+): Promise<number> {
+  const conversationId = await getOrCreateDm(senderId, recipientId);
+  await db.insert(messages).values({
+    conversationId,
+    senderId,
+    body,
+    bookingId,
+  });
+  return conversationId;
 }
 
 /** Marca la conversación como leída hasta ahora para el usuario. */

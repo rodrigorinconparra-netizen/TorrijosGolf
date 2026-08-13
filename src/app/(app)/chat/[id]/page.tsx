@@ -36,6 +36,7 @@ export default async function ChatThreadPage({
     body: m.body,
     createdAt: m.createdAt.toISOString(),
     training: m.training,
+    booking: m.booking,
   }));
 
   const subtitle =

@@ -349,6 +349,9 @@ export const messages = pgTable("messages", {
   trainingId: integer("training_id").references(() => trainings.id, {
     onDelete: "cascade",
   }),
+  /** Si el mensaje es una tarjeta de reserva (estilo Wallapop), enlaza a la
+   *  solicitud para poder mostrar su estado y sus acciones dentro del chat. */
+  bookingId: integer("booking_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

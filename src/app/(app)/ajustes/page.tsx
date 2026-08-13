@@ -7,6 +7,7 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ProfileForm, PasswordForm, DeleteAccountForm, HandicapForm } from "./forms";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { TeacherProfileForm } from "@/components/teacher-profile-form";
 import {
   togglePushAction,
@@ -76,6 +77,18 @@ export default async function SettingsPage() {
         <h2 className="font-semibold">Seguridad</h2>
         <p className="mb-4 mt-1 text-sm text-muted">Cambia tu contraseña.</p>
         <PasswordForm />
+      </section>
+
+      <section className="glass p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">Apariencia</h2>
+            <p className="mt-1 text-sm text-muted">
+              Elige cómo quieres ver la app. Por defecto está en modo día.
+            </p>
+          </div>
+          <ThemeSwitcher />
+        </div>
       </section>
 
       <section className="glass p-6">

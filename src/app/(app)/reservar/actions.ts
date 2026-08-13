@@ -13,8 +13,9 @@ import {
 import { requireSession } from "@/lib/auth/session";
 import { isGuardianOf } from "@/lib/queries";
 import { hasBookingConflict, priceFor, teacherPrices } from "@/lib/booking";
-import { notifyUsers } from "@/lib/notify";
-import { isoWeekday } from "@/lib/utils";
+import { postBookingCardMessage } from "@/lib/chat";
+import { notifyUser, notifyUsers } from "@/lib/notify";
+import { formatDate, formatEuro, isoWeekday, weekdayName } from "@/lib/utils";
 
 export interface BookingState {
   error?: string;
@@ -144,6 +145,47 @@ export async function requestBookingAction(
     }
   }
 
+  // Mensaje predeterminado que se envía en el chat con el profesor. También
+  // sirve como texto de la notificación push/in-app: así el primer mensaje del
+  // chat y el aviso son consistentes.
+  const whenLabel =
+    d.kind === "puntual" && date
+      ? formatDate(date)
+      : `los ${weekdayName(av.weekday).toLowerCase()}`;
+  const priceLabel =
+    price > 0
+      ? ` · ${formatEuro(price)}${d.classKind === "grupal" ? "/persona" : ""}`
+      : "";
+  const cardBody = `Hola, quiero reservar una clase ${d.classKind === "grupal" ? "grupal" : "individual"} ${d.kind === "mensual" ? "semanal" : "puntual"} ${whenLabel} a las ${av.startTime} (${av.durationMin} min)${priceLabel}. ¿Me la confirmas?`;
+
+  // Abre (o reutiliza) el DM con el profesor y publica la tarjeta de reserva
+  // como primer mensaje. Desde el chat, tanto profesor como admin podrán
+  // aceptarla o rechazarla. Best-effort: si algo falla, la reserva ya está
+  // guardada y el admin la ve en Solicitudes.
+  let conversationId: number | null = null;
+  if (booking) {
+    try {
+      conversationId = await postBookingCardMessage(
+        studentId,
+        av.teacherId,
+        booking.id,
+        cardBody,
+      );
+    } catch {
+      /* no bloqueamos la reserva por un fallo del chat */
+    }
+  }
+  const chatLink = conversationId ? `/chat/${conversationId}` : "/chat";
+
+  // Aviso al profesor: le llega a su chat.
+  await notifyUser(av.teacherId, {
+    type: "clase",
+    title: `Nueva reserva de ${user.name}`,
+    body: cardBody,
+    link: chatLink,
+  });
+
+  // Aviso a los administradores: control total desde /admin/solicitudes.
   const admins = await db
     .select({ id: users.id })
     .from(users)
@@ -153,13 +195,15 @@ export async function requestBookingAction(
     {
       type: "clase",
       title: "Nueva reserva por confirmar",
-      body: `${user.name} ha reservado una clase ${d.classKind === "grupal" ? "grupal" : "individual"} ${d.kind === "mensual" ? "semanal" : "puntual"}. Revísala en Solicitudes.`,
+      body: `${user.name} → ${d.classKind === "grupal" ? "grupal" : "individual"} ${d.kind === "mensual" ? "semanal" : "puntual"}. Puede confirmarla el profesor desde el chat o tú desde Solicitudes.`,
       link: "/admin/solicitudes",
     },
   );
 
   revalidatePath("/admin/solicitudes");
+  revalidatePath("/chat");
+  if (conversationId) revalidatePath(`/chat/${conversationId}`);
   return {
-    ok: "Reserva enviada. El club la confirmará y te avisaremos.",
+    ok: "Reserva enviada. Puedes chatear con el profesor mientras la confirma.",
   };
 }

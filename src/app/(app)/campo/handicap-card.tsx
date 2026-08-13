@@ -14,12 +14,19 @@ import {
 /**
  * Calculadora de hándicap de juego y golpes por hoyo. El usuario mete su
  * hándicap (índice), elige barra de salida y sexo, y ve cuántos golpes recibe
- * en cada hoyo (útil para gestionar torneos).
+ * en cada hoyo (útil para gestionar torneos). Se prerrellena con los datos
+ * del propio usuario si los tiene guardados.
  */
-export function HandicapCard() {
-  const [index, setIndex] = useState("");
+export function HandicapCard({
+  defaultIndex = "",
+  defaultSexo = "hombre",
+}: {
+  defaultIndex?: string;
+  defaultSexo?: Sexo;
+}) {
+  const [index, setIndex] = useState(defaultIndex);
   const [barra, setBarra] = useState<Barra>("amarillas");
-  const [sexo, setSexo] = useState<Sexo>("hombre");
+  const [sexo, setSexo] = useState<Sexo>(defaultSexo);
 
   const hi = parseFloat(index.replace(",", "."));
   const valid = Number.isFinite(hi);

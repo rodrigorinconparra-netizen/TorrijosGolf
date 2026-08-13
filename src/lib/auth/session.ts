@@ -8,7 +8,10 @@ import {
   type SessionPayload,
 } from "./jwt";
 
-const MAX_AGE = 60 * 60 * 24 * 7; // 7 días
+// Cookie "prácticamente infinita" (~10 años). El usuario no vuelve a ver el
+// login salvo que pulse "Cerrar sesión" o borre datos del navegador. Debe ir
+// alineada con la expiración del JWT (ver signToken en jwt.ts).
+const MAX_AGE = 60 * 60 * 24 * 365 * 10;
 
 export async function createSession(payload: SessionPayload): Promise<void> {
   const token = await signToken(payload);

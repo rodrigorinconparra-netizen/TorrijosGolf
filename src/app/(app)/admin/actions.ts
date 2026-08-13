@@ -18,7 +18,7 @@ import {
   teacherStudents,
   users,
 } from "@/lib/db/schema";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin, requireSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { notifyUser, notifyUsers } from "@/lib/notify";
 import { ensureGroupConversation, syncGroupConversationMembers } from "@/lib/chat";
@@ -753,11 +753,16 @@ export async function deleteAvailabilityAction(formData: FormData): Promise<void
  * Reservas de alumnos (aceptar/rechazar)
  * ------------------------------------------------------------------------- */
 
-/** Acepta una reserva: crea la clase (mensual → hora semanal; puntual → un día). */
+/**
+ * Acepta una reserva: crea la clase (mensual → hora semanal; puntual → un día).
+ * La puede confirmar el propio profesor desde el chat con el alumno o cualquier
+ * admin desde /admin/solicitudes; el primero que lo haga cierra la reserva
+ * (los demás verán que ya no está pendiente). El precio es siempre el que
+ * calcula la app (matriz del profesor), no se edita al aceptar.
+ */
 export async function acceptBookingAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const actor = await requireSession();
   const bookingId = Number(formData.get("bookingId"));
-  const price = Number(formData.get("price")) || 0;
   if (!bookingId) return;
 
   const [b] = await db
@@ -766,6 +771,12 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
     .where(eq(bookingRequests.id, bookingId))
     .limit(1);
   if (!b || b.status !== "pendiente") return;
+  // Solo el admin o el profesor de esa reserva pueden confirmarla.
+  if (actor.role !== "admin" && actor.userId !== b.teacherId) return;
+
+  // El precio siempre viene de la reserva (calculado desde la matriz del
+  // profesor al reservar), no se edita al aceptar.
+  const price = b.price ?? 0;
 
   // Evita duplicar si esa hora ya se asignó (otra reserva aceptada antes).
   const clash = await db
@@ -786,7 +797,7 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
   if (conflict) {
     await db
       .update(bookingRequests)
-      .set({ status: "rechazada", decidedBy: admin.userId, decidedAt: new Date() })
+      .set({ status: "rechazada", decidedBy: actor.userId, decidedAt: new Date() })
       .where(eq(bookingRequests.id, bookingId));
     await notifyUser(b.studentId, {
       type: "clase",
@@ -795,6 +806,7 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
       link: "/reservar",
     });
     revalidatePath("/admin/solicitudes");
+    revalidatePath("/chat");
     return;
   }
 
@@ -870,7 +882,7 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
 
   await db
     .update(bookingRequests)
-    .set({ status: "aceptada", decidedBy: admin.userId, decidedAt: new Date() })
+    .set({ status: "aceptada", decidedBy: actor.userId, decidedAt: new Date() })
     .where(eq(bookingRequests.id, bookingId));
 
   await notifyUser(b.studentId, {
@@ -887,10 +899,11 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/horarios");
   revalidatePath("/clases");
   revalidatePath("/reservar");
+  revalidatePath("/chat");
 }
 
 export async function rejectBookingAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const actor = await requireSession();
   const bookingId = Number(formData.get("bookingId"));
   const reason = String(formData.get("reason") ?? "").trim();
   if (!bookingId) return;
@@ -901,10 +914,11 @@ export async function rejectBookingAction(formData: FormData): Promise<void> {
     .where(eq(bookingRequests.id, bookingId))
     .limit(1);
   if (!b || b.status !== "pendiente") return;
+  if (actor.role !== "admin" && actor.userId !== b.teacherId) return;
 
   await db
     .update(bookingRequests)
-    .set({ status: "rechazada", decidedBy: admin.userId, decidedAt: new Date() })
+    .set({ status: "rechazada", decidedBy: actor.userId, decidedAt: new Date() })
     .where(eq(bookingRequests.id, bookingId));
 
   await notifyUser(b.studentId, {
@@ -915,4 +929,5 @@ export async function rejectBookingAction(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/admin/solicitudes");
+  revalidatePath("/chat");
 }
