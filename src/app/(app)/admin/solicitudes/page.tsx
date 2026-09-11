@@ -1,5 +1,5 @@
-import { desc, eq, inArray } from "drizzle-orm";
-import { Check, X, Inbox, Clock, CalendarCheck } from "lucide-react";
+import { desc, eq, inArray, or } from "drizzle-orm";
+import { Check, X, Inbox, Clock, CalendarCheck, History } from "lucide-react";
 import { db } from "@/lib/db";
 import {
   bookingRequestMembers,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { weekdayName, formatEuro, formatDate } from "@/lib/utils";
+import { weekdayName, formatEuro, formatDate, formatDateTime } from "@/lib/utils";
 import { alias } from "drizzle-orm/pg-core";
 import {
   acceptClassRequestAction,
@@ -139,6 +139,38 @@ export default async function AdminRequestsPage() {
       m.name,
     ]);
   }
+
+  // Historial: últimas reservas ya decididas (aceptada/rechazada). Aquí es
+  // donde el admin ve qué ha decidido el profesor desde el chat (y también sus
+  // propias decisiones), con quién y cuándo.
+  const decidedBy = alias(users, "decided_by_u");
+  const bookingHistory = await db
+    .select({
+      id: bookingRequests.id,
+      studentName: users.name,
+      teacherName: teacherU.name,
+      weekday: bookingRequests.weekday,
+      startTime: bookingRequests.startTime,
+      kind: bookingRequests.kind,
+      classKind: bookingRequests.classKind,
+      date: bookingRequests.date,
+      status: bookingRequests.status,
+      decidedAt: bookingRequests.decidedAt,
+      decidedByName: decidedBy.name,
+      decidedByRole: decidedBy.role,
+    })
+    .from(bookingRequests)
+    .innerJoin(users, eq(users.id, bookingRequests.studentId))
+    .innerJoin(teacherU, eq(teacherU.id, bookingRequests.teacherId))
+    .leftJoin(decidedBy, eq(decidedBy.id, bookingRequests.decidedBy))
+    .where(
+      or(
+        eq(bookingRequests.status, "aceptada"),
+        eq(bookingRequests.status, "rechazada"),
+      ),
+    )
+    .orderBy(desc(bookingRequests.decidedAt))
+    .limit(15);
 
   return (
     <div className="space-y-6">
@@ -319,6 +351,52 @@ export default async function AdminRequestsPage() {
           </ul>
         )}
       </section>
+
+      {bookingHistory.length > 0 ? (
+        <section className="glass p-6">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-muted" />
+            <h2 className="font-semibold">
+              Historial de reservas ({bookingHistory.length})
+            </h2>
+          </div>
+          <p className="mb-4 mt-1 text-sm text-muted">
+            Últimas reservas ya decididas. Aquí ves qué ha confirmado o rechazado
+            cada profesor desde el chat con el alumno.
+          </p>
+          <ul className="space-y-2">
+            {bookingHistory.map((r) => (
+              <li key={r.id} className="glass-soft flex flex-wrap items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink">
+                    {r.studentName} → {r.teacherName}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {r.classKind === "grupal" ? "Grupal" : "Individual"} ·{" "}
+                    {r.kind === "puntual" && r.date
+                      ? `${formatDate(r.date)} ${r.startTime}`
+                      : `${weekdayName(r.weekday)} ${r.startTime}`}
+                    {r.decidedByName ? (
+                      <>
+                        {" · "}
+                        <span className="text-ink-soft">
+                          {r.decidedByRole === "profesor" ? "aceptó" : "decidió"} por{" "}
+                          <span className="font-medium">{r.decidedByName}</span>
+                          {r.decidedByRole === "profesor" ? " (profesor)" : " (admin)"}
+                        </span>
+                      </>
+                    ) : null}
+                    {r.decidedAt ? ` · ${formatDateTime(r.decidedAt)}` : ""}
+                  </p>
+                </div>
+                <Badge tone={r.status === "aceptada" ? "positive" : "negative"}>
+                  {r.status === "aceptada" ? "Aceptada" : "Rechazada"}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="glass p-6">
         <h2 className="font-semibold">Cambios de horario ({scheduleRows.length})</h2>

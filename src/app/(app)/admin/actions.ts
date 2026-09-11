@@ -895,6 +895,28 @@ export async function acceptBookingAction(formData: FormData): Promise<void> {
     link: "/clases",
   });
 
+  // Si quien acepta es el profesor (no un admin), avisamos a los admins para
+  // que el club esté al tanto sin tener que estar mirando /admin/solicitudes.
+  if (actor.role === "profesor") {
+    const [teacher, student] = await Promise.all([
+      db.select({ name: users.name }).from(users).where(eq(users.id, b.teacherId)).limit(1),
+      db.select({ name: users.name }).from(users).where(eq(users.id, b.studentId)).limit(1),
+    ]);
+    const admins = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role, "admin"));
+    await notifyUsers(
+      admins.map((a) => a.id),
+      {
+        type: "clase",
+        title: "Reserva confirmada por el profesor",
+        body: `${teacher[0]?.name ?? "El profesor"} ha aceptado la reserva de ${student[0]?.name ?? "un alumno"}.`,
+        link: "/admin/solicitudes",
+      },
+    );
+  }
+
   revalidatePath("/admin/solicitudes");
   revalidatePath("/admin/horarios");
   revalidatePath("/clases");
@@ -927,6 +949,27 @@ export async function rejectBookingAction(formData: FormData): Promise<void> {
     body: reason || "El club no ha podido confirmar tu reserva.",
     link: "/reservar",
   });
+
+  // Si quien rechaza es el profesor, avisamos a los admins.
+  if (actor.role === "profesor") {
+    const [teacher, student] = await Promise.all([
+      db.select({ name: users.name }).from(users).where(eq(users.id, b.teacherId)).limit(1),
+      db.select({ name: users.name }).from(users).where(eq(users.id, b.studentId)).limit(1),
+    ]);
+    const admins = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role, "admin"));
+    await notifyUsers(
+      admins.map((a) => a.id),
+      {
+        type: "clase",
+        title: "Reserva rechazada por el profesor",
+        body: `${teacher[0]?.name ?? "El profesor"} ha rechazado la reserva de ${student[0]?.name ?? "un alumno"}${reason ? `: ${reason}` : ""}.`,
+        link: "/admin/solicitudes",
+      },
+    );
+  }
 
   revalidatePath("/admin/solicitudes");
   revalidatePath("/chat");

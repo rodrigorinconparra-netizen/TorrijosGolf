@@ -9,6 +9,28 @@ import {
   teacherAvailability,
   users,
 } from "@/lib/db/schema";
+import { toDateKey } from "@/lib/utils";
+
+/**
+ * Normaliza cualquier valor de fecha (string "yyyy-mm-dd", string ISO o `Date`
+ * devuelta por Drizzle/Neon) a la clave "yyyy-mm-dd" que usa el cliente para
+ * comparar. Sin esto, un `date` de Postgres serializado como
+ * "2026-08-09T22:00:00.000Z" (UTC ≈ 2026-08-10 en España) no coincidiría con
+ * la clave "2026-08-10" que genera el cliente, y una hora ya cogida seguiría
+ * apareciendo como libre.
+ */
+function dateKey(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") {
+    // "yyyy-mm-dd" o "yyyy-mm-ddT..." → si trae hora la reinterpretamos en
+    // zona local para no arrastrar el desfase UTC.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return Number.isFinite(d.getTime()) ? toDateKey(d) : null;
+  }
+  if (v instanceof Date) return toDateKey(v);
+  return null;
+}
 
 export interface ScheduleEntry {
   weekday: number;
@@ -96,15 +118,18 @@ export async function teacherWeeklySchedule(
   const takenByTime = new Map<string, Set<string>>();
   const monthlyTakenKeys = new Set<string>();
   for (const o of oneOffs) {
-    if (!o.date) continue;
+    const key = dateKey(o.date);
+    if (!key) continue;
     const set = takenByTime.get(o.startTime) ?? new Set<string>();
-    set.add(o.date);
+    set.add(key);
     takenByTime.set(o.startTime, set);
   }
   for (const b of bks) {
-    if (b.kind === "puntual" && b.date) {
+    if (b.kind === "puntual") {
+      const key = dateKey(b.date);
+      if (!key) continue;
       const set = takenByTime.get(b.startTime) ?? new Set<string>();
-      set.add(b.date);
+      set.add(key);
       takenByTime.set(b.startTime, set);
     } else if (b.kind === "mensual") {
       monthlyTakenKeys.add(`${b.weekday}|${b.startTime}`);

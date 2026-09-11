@@ -32,6 +32,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Android 13+: pedir permiso para mostrar notificaciones push -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Push nativas temporalmente desactivadas hasta configurar Firebase. Cuando
+         se active el plugin @capacitor/push-notifications, reañadir:
+         <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    -->
 </manifest>

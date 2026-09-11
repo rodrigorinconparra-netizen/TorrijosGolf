@@ -23,10 +23,8 @@ export default async function BookPage() {
       prices: await teacherPrices(t.id),
     })),
   );
-  // Solo profesores que tengan alguna hora libre para reservar.
-  const withFree = schedules.filter((s) =>
-    s.entries.some((e) => e.status === "libre"),
-  );
+  // Mostramos todos los profesores del club; los que no tengan horas libres
+  // aparecen igualmente y el alumno ve un aviso en su pestaña.
 
   const kids = await childrenOf(user.userId);
 
@@ -45,15 +43,15 @@ export default async function BookPage() {
         title="Reservar clase"
         subtitle="Elige un profesor y una hora libre. Puntual (un día) o mensual (semanal)."
       />
-      {withFree.length === 0 ? (
+      {schedules.length === 0 ? (
         <EmptyState
           icon={CalendarPlus}
-          title="No hay horas libres ahora mismo"
-          description="Cuando el club abra horas disponibles de los profesores, podrás reservarlas aquí."
+          title="Aún no hay profesores en el club"
+          description="Cuando el club dé de alta profesores, aparecerán aquí para reservar."
         />
       ) : (
         <BookingClient
-          teachers={withFree}
+          teachers={schedules}
           children={kids.map((k) => ({ id: k.id, name: k.name }))}
           classmates={classmates}
         />

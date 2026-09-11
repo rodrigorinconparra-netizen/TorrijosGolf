@@ -325,20 +325,32 @@ export function BookingClient({
   return (
     <div className="space-y-4">
       <div className="glass-soft flex gap-1 overflow-x-auto p-1.5">
-        {teachers.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setSelected(t.id)}
-            className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition ${
-              t.id === selected
-                ? "bg-accent text-on-accent"
-                : "text-ink-soft hover:bg-black/5"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
+        {teachers.map((t) => {
+          const noneFree = !t.entries.some((e) => e.status === "libre");
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSelected(t.id)}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition ${
+                t.id === selected
+                  ? "bg-accent text-on-accent"
+                  : "text-ink-soft hover:bg-black/5"
+              }`}
+            >
+              {t.name}
+              {noneFree ? (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    t.id === selected ? "bg-white/25 text-on-accent" : "bg-black/8 text-faint"
+                  }`}
+                >
+                  sin horas
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       {days.length === 0 ? (
